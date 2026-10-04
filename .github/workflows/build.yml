@@ -14,18 +14,19 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Recreate Project and Build
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build Debug APK
         run: |
-          mkdir temp_build
-          cp -r lib pubspec.yaml temp_build/
-          cd temp_build
-          flutter create . --org com.example.dnd
           flutter pub get
-          flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk ../app-release.apk
+          flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: app-release.apk
+          name: dnd-geofence-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
