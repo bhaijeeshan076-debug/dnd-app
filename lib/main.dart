@@ -1,7 +1,4 @@
-
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:geolocator/geolocator.dart';
 
 void main() {
   runApp(const DndGeofenceApp());
@@ -33,46 +30,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool isDndEnabled = true;
-  String locationStatus = "Checking location permission...";
-  String dndPermissionStatus = "Permission not granted";
-
-  @override
-  void initState() {
-    super.initState();
-    _requestPermissions();
-  }
-
-  Future<void> _requestPermissions() async {
-    // Request Location Permission
-    LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
-      Position position = await Geolocator.getCurrentPosition();
-      setState(() {
-        locationStatus = "Current Loc: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
-      });
-    } else {
-      setState(() {
-        locationStatus = "Location Permission Denied";
-      });
-    }
-
-    // Check DND Policy Access Permission
-    if (await Permission.accessNotificationPolicy.isGranted) {
-      setState(() {
-        dndPermissionStatus = "DND Permission Granted";
-      });
-    } else {
-      setState(() {
-        dndPermissionStatus = "DND Permission Required";
-      });
-    }
-  }
-
-  Future<void> _openDndSettings() async {
-    await Permission.accessNotificationPolicy.request();
-    _requestPermissions();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,23 +69,10 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 15),
             Card(
               color: Colors.deepPurple.shade50,
-              child: ListTile(
-                leading: const Icon(Icons.my_location, color: Colors.deepPurple),
-                title: const Text('Live GPS Status'),
-                subtitle: Text(locationStatus),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Card(
-              color: Colors.orange.shade50,
-              child: ListTile(
-                leading: const Icon(Icons.do_not_disturb_on, color: Colors.orange),
-                title: const Text('System DND Permission'),
-                subtitle: Text(dndPermissionStatus),
-                trailing: TextButton(
-                  onPressed: _openDndSettings,
-                  child: const Text('Allow'),
-                ),
+              child: const ListTile(
+                leading: Icon(Icons.my_location, color: Colors.deepPurple),
+                title: Text('Live GPS Status'),
+                subtitle: Text('Status: Geofence Active (Testing Mode)'),
               ),
             ),
             const SizedBox(height: 20),
@@ -141,6 +85,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 leading: Icon(Icons.location_on, color: Colors.deepPurple),
                 title: Text('Office Zone'),
                 subtitle: Text('Radius: 200m | Silences calls & WhatsApp'),
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.add_location_alt),
+                label: const Text('Add New Geofence Zone'),
               ),
             ),
           ],
