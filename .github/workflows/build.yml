@@ -14,26 +14,18 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Build Modern Android APK
+      - name: Recreate Project and Build
         run: |
-          cd ..
-          flutter create --org com.bhaijeeshan --project-name dnd_app temp_app
-          cp -r temp_app/android dnd-app/
-          cd dnd-app
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 34/' android/app/build.gradle || true
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/' android/app/build.gradle || true
+          mkdir temp_build
+          cp -r lib pubspec.yaml temp_build/
+          cd temp_build
+          flutter create . --org com.example.dnd
           flutter pub get
           flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ../app-release.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: app-release.apk
