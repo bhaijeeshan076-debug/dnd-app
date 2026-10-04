@@ -14,10 +14,10 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Generate Android Skeleton & Build
+      - name: Generate Custom Android App & Build
         run: |
           cd ..
-          flutter create temp_app
+          flutter create --org com.bhaijeeshan --project-name dnd_app temp_app
           cp -r temp_app/android dnd-app/
           cd dnd-app
           flutter pub get
