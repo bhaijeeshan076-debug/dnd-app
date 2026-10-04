@@ -26,9 +26,9 @@ jobs:
           flutter create --org com.bhaijeeshan --project-name dnd_app temp_app
           cp -r temp_app/android dnd-app/
           cd dnd-app
-          # Set Android Target SDK to 34 (Latest Android)
           sed -i 's/targetSdkVersion .*/targetSdkVersion 34/' android/app/build.gradle || true
           sed -i 's/compileSdkVersion .*/compileSdkVersion 34/' android/app/build.gradle || true
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/' android/app/build.gradle || true
           flutter pub get
           flutter build apk --release
 
