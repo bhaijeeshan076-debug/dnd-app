@@ -20,10 +20,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Recreate Android Project & Build Debug APK
+      - name: Recreate Android Project & Build
         run: |
           rm -rf android
           flutter create --org com.bhaijeeshan.dnd --project-name dnd_app .
+          
+          # Fix Kotlin version mismatch
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.0"/' android/build.gradle || true
+          
           flutter pub get
           flutter build apk --debug
 
