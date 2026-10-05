@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_dnd/flutter_dnd.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,69 +14,92 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Auto Geofence Silent',
+      title: 'Masjid Auto Mute',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const GeofenceHomeScreen(),
+      home: const MasjidGeofenceScreen(),
     );
   }
 }
 
-class GeofenceHomeScreen extends StatefulWidget {
-  const GeofenceHomeScreen({super.key});
+class MasjidGeofenceScreen extends StatefulWidget {
+  const MasjidGeofenceScreen({super.key});
 
   @override
-  State<GeofenceHomeScreen> createState() => _GeofenceHomeScreenState();
+  State<MasjidGeofenceScreen> createState() => _MasjidGeofenceScreenState();
 }
 
-class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
-  bool isGeofenceActive = true;
-  String locationStatus = "Fetching GPS...";
-  String dndStatus = "App Ready (Auto Mode)";
+class _MasjidGeofenceScreenState extends State<MasjidGeofenceScreen> {
+  bool isAutoMuteActive = true;
+  String statusMessage = "Checking Location...";
+  bool isInsideMasjid = false;
+
+  // Set your Masjid Coordinates & Radius (In Meters)
+  final double masjidLat = 19.0419; 
+  final double masjidLng = 72.8502;
+  final double radiusInMeters = 50.0; // 50 Meters Boundary
 
   @override
   void initState() {
     super.initState();
-    _checkPermissionsAndStart();
+    _requestPermissionsInApp();
   }
 
-  Future<void> _checkPermissionsAndStart() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      setState(() => locationStatus = "Please enable GPS");
-      return;
+  // Requests location and DND permissions inside the app without going to settings manually
+  Future<void> _requestPermissionsInApp() async {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.location,
+      Permission.locationAlways,
+    ].request();
+
+    bool? isNotificationPolicyGranted = await FlutterDnd.isNotificationPolicyAccessGranted;
+    if (isNotificationPolicyGranted == false) {
+      // In-app prompt for DND Access
+      FlutterDnd.gotoPolicyAccessSettings();
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        setState(() => locationStatus = "Location Permission Denied");
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      setState(() => locationStatus = "Location Denied Permanently");
-      return;
-    }
-
-    _updateLocation();
+    _startLiveLocationTracking();
   }
 
-  Future<void> _updateLocation() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+  void _startLiveLocationTracking() {
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5, // Triggers when user moves 5 meters
+      ),
+    ).listen((Position position) {
+      double distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        masjidLat,
+        masjidLng,
       );
-      setState(() {
-        locationStatus =
-            "Active | Lat: ${position.latitude.toStringAsFixed(4)}, Long: ${position.longitude.toStringAsFixed(4)}";
-      });
-    } catch (e) {
-      setState(() => locationStatus = "Location Error: $e");
+
+      if (distance <= radiusInMeters) {
+        _setPhoneSilent(true);
+        setState(() {
+          isInsideMasjid = true;
+          statusMessage = "Inside Masjid Range (${distance.toInt()}m away)\nPhone Muted Automatically!";
+        });
+      } else {
+        _setPhoneSilent(false);
+        setState(() {
+          isInsideMasjid = false;
+          statusMessage = "Outside Masjid Range (${distance.toInt()}m away)\nPhone Ringer Normal";
+        });
+      }
+    });
+  }
+
+  Future<void> _setPhoneSilent(bool silent) async {
+    if (await FlutterDnd.isNotificationPolicyAccessGranted ?? false) {
+      if (silent) {
+        await FlutterDnd.setInterruptionFilter(FlutterDnd.INTERRUPTION_FILTER_NONE);
+      } else {
+        await FlutterDnd.setInterruptionFilter(FlutterDnd.INTERRUPTION_FILTER_ALL);
+      }
     }
   }
 
@@ -82,43 +107,50 @@ class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Auto Geofence Mute'),
-        backgroundColor: Colors.deepPurple.shade100,
+        title: const Text('Masjid Auto Silent'),
+        backgroundColor: Colors.teal.shade100,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             Card(
+              elevation: 3,
               child: SwitchListTile(
-                title: const Text('Geofence Auto Mute',
+                title: const Text('Masjid Auto Mute Service',
                     style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Works automatically on all devices'),
-                value: isGeofenceActive,
-                onChanged: (val) => setState(() => isGeofenceActive = val),
+                subtitle: const Text('Auto-mutes when inside Masjid boundary'),
+                value: isAutoMuteActive,
+                onChanged: (val) => setState(() => isAutoMuteActive = val),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Card(
+              elevation: 3,
+              color: isInsideMasjid ? Colors.red.shade50 : Colors.green.shade50,
               child: ListTile(
-                leading: const Icon(Icons.my_location, color: Colors.deepPurple),
-                title: const Text('GPS Location Status'),
-                subtitle: Text(locationStatus),
-                trailing: IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _updateLocation,
+                leading: Icon(
+                  isInsideMasjid ? Icons.volume_off : Icons.volume_up,
+                  color: isInsideMasjid ? Colors.red : Colors.green,
+                  size: 32,
                 ),
+                title: Text(
+                  isInsideMasjid ? "Status: SILENT MODE" : "Status: NORMAL MODE",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(statusMessage),
               ),
             ),
-            const SizedBox(height: 12),
-            Card(
-              color: Colors.green.shade50,
-              child: ListTile(
-                leading: const Icon(Icons.check_circle, color: Colors.green),
-                title: const Text('System Service Status'),
-                subtitle: Text(dndStatus),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _requestPermissionsInApp,
+              icon: const Icon(Icons.security),
+              label: const Text('Allow All Permissions In-App'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
               ),
-            ),
+            )
           ],
         ),
       ),
