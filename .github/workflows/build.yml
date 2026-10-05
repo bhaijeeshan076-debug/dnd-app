@@ -23,10 +23,11 @@ jobs:
       - name: Recreate Android Project & Build
         run: |
           rm -rf android
-          flutter create --org com.bhaijeeshan.dnd --project-name dnd_app .
+          flutter create --org com.bhaijeeshan.dnd --project-name dnd_app --platforms android .
           
-          # Fix Kotlin version mismatch
-          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.0"/' android/build.gradle || true
+          # Force set compatible Kotlin version in settings.gradle/build.gradle
+          sed -i 's/1.7.1/1.8.22/g' android/build.gradle 2>/dev/null || true
+          sed -i 's/1.9.0/1.8.22/g' android/build.gradle 2>/dev/null || true
           
           flutter pub get
           flutter build apk --debug
