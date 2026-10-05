@@ -1,79 +1,94 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
 void main() {
-  runApp(const DndGeofenceApp());
+  runApp(const MyApp());
 }
 
-class DndGeofenceApp extends StatelessWidget {
-  const DndGeofenceApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Geofence DND',
+      title: 'Live Geofence DND',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const GeofenceHomeScreen(),
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class GeofenceHomeScreen extends StatefulWidget {
+  const GeofenceHomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<GeofenceHomeScreen> createState() => _GeofenceHomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  bool isDndEnabled = true;
+class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
+  bool isGeofenceActive = true;
   String locationStatus = "Fetching live GPS location...";
-  String dndPermissionStatus = "Checking DND status...";
+  static const platform = MethodChannel('com.bhaijeeshan.dnd/settings');
 
   @override
   void initState() {
     super.initState();
-    _requestAndFetchLocation();
+    _initAppPermissions();
   }
 
-  Future<void> _requestAndFetchLocation() async {
-    // Request Location Permission & Get Live Coordinates
-    LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
+  Future<void> _initAppPermissions() async {
+    await _requestLocationPermission();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      setState(() => locationStatus = "GPS is turned off");
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        setState(() => locationStatus = "Location permission required");
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      setState(() => locationStatus = "Location permissions permanently denied");
+      return;
+    }
+
+    _fetchCurrentLocation();
+  }
+
+  Future<void> _fetchCurrentLocation() async {
+    try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
       setState(() {
         locationStatus =
-            "Lat: ${position.latitude.toStringAsFixed(4)}, Long: ${position.longitude.toStringAsFixed(4)}";
+            "Active | Lat: ${position.latitude.toStringAsFixed(4)}, Long: ${position.longitude.toStringAsFixed(4)}";
       });
-    } else {
-      setState(() {
-        locationStatus = "Location Access Denied";
-      });
-    }
-
-    // Check System DND Permission
-    if (await Permission.accessNotificationPolicy.isGranted) {
-      setState(() {
-        dndPermissionStatus = "DND Control Granted (Active)";
-      });
-    } else {
-      setState(() {
-        dndPermissionStatus = "DND Permission Required";
-      });
+    } catch (e) {
+      setState(() => locationStatus = "Error fetching location: $e");
     }
   }
 
-  Future<void> _openDndSettings() async {
-    await Permission.accessNotificationPolicy.request();
-    _requestAndFetchLocation();
+  Future<void> _openSystemSettings() async {
+    try {
+      await platform.invokeMethod('openDndSettings');
+    } on PlatformException {
+      // Fallback intent if native channel fails
+    }
   }
 
   @override
@@ -81,72 +96,49 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Live Geofence DND'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.deepPurple.shade100,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Geofence Auto Mute',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    Switch(
-                      value: isDndEnabled,
-                      onChanged: (val) {
-                        setState(() {
-                          isDndEnabled = val;
-                        });
-                      },
-                    ),
-                  ],
-                ),
+              elevation: 2,
+              child: SwitchListTile(
+                title: const Text('Automatic Geofence Mute',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Runs in background for all devices'),
+                value: isGeofenceActive,
+                onChanged: (val) {
+                  setState(() => isGeofenceActive = val);
+                },
               ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 12),
             Card(
-              color: Colors.deepPurple.shade50,
+              elevation: 2,
               child: ListTile(
-                leading: const Icon(Icons.gps_fixed, color: Colors.deepPurple),
-                title: const Text('Live GPS Location'),
+                leading: const Icon(Icons.my_location, color: Colors.deepPurple),
+                title: const Text('GPS Tracking Status'),
                 subtitle: Text(locationStatus),
                 trailing: IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: _requestAndFetchLocation,
+                  onPressed: _fetchCurrentLocation,
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Card(
-              color: Colors.orange.shade50,
+              elevation: 2,
+              color: Colors.purple.shade50,
               child: ListTile(
-                leading: const Icon(Icons.do_not_disturb_on, color: Colors.orange),
-                title: const Text('System DND Access'),
-                subtitle: Text(dndPermissionStatus),
-                trailing: TextButton(
-                  onPressed: _openDndSettings,
-                  child: const Text('Grant Access'),
+                leading: const Icon(Icons.settings_suggest, color: Colors.deepPurple),
+                title: const Text('System Notification Access'),
+                subtitle: const Text('Tap to grant background policy access'),
+                trailing: ElevatedButton(
+                  onPressed: _openSystemSettings,
+                  child: const Text('Allow'),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Active Geofence Radius:',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const Card(
-              child: ListTile(
-                leading: Icon(Icons.location_on, color: Colors.deepPurple),
-                title: Text('Current Boundary'),
-                subtitle: Text('200m Radius | Auto-silences Calls & Notifications'),
               ),
             ),
           ],
