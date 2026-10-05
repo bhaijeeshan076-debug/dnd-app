@@ -12,7 +12,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
+          flutter-version: '3.22.0'
 
       - name: Setup Java
         uses: actions/setup-java@v3
@@ -20,15 +20,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Recreate Android Project & Build
+      - name: Recreate Clean Android Project & Build
         run: |
           rm -rf android
           flutter create --org com.bhaijeeshan.dnd --project-name dnd_app --platforms android .
-          
-          # Force set compatible Kotlin version in settings.gradle/build.gradle
-          sed -i 's/1.7.1/1.8.22/g' android/build.gradle 2>/dev/null || true
-          sed -i 's/1.9.0/1.8.22/g' android/build.gradle 2>/dev/null || true
-          
           flutter pub get
           flutter build apk --debug
 
