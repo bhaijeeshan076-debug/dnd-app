@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
 void main() {
@@ -13,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Live Geofence DND',
+      title: 'Auto Geofence Silent',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -32,23 +31,19 @@ class GeofenceHomeScreen extends StatefulWidget {
 
 class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
   bool isGeofenceActive = true;
-  String locationStatus = "Fetching live GPS location...";
-  static const platform = MethodChannel('com.bhaijeeshan.dnd/settings');
+  String locationStatus = "Fetching GPS...";
+  String dndStatus = "App Ready (Auto Mode)";
 
   @override
   void initState() {
     super.initState();
-    _initAppPermissions();
+    _checkPermissionsAndStart();
   }
 
-  Future<void> _initAppPermissions() async {
-    await _requestLocationPermission();
-  }
-
-  Future<void> _requestLocationPermission() async {
+  Future<void> _checkPermissionsAndStart() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      setState(() => locationStatus = "GPS is turned off");
+      setState(() => locationStatus = "Please enable GPS");
       return;
     }
 
@@ -56,20 +51,20 @@ class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        setState(() => locationStatus = "Location permission required");
+        setState(() => locationStatus = "Location Permission Denied");
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      setState(() => locationStatus = "Location permissions permanently denied");
+      setState(() => locationStatus = "Location Denied Permanently");
       return;
     }
 
-    _fetchCurrentLocation();
+    _updateLocation();
   }
 
-  Future<void> _fetchCurrentLocation() async {
+  Future<void> _updateLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
@@ -79,15 +74,7 @@ class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
             "Active | Lat: ${position.latitude.toStringAsFixed(4)}, Long: ${position.longitude.toStringAsFixed(4)}";
       });
     } catch (e) {
-      setState(() => locationStatus = "Error fetching location: $e");
-    }
-  }
-
-  Future<void> _openSystemSettings() async {
-    try {
-      await platform.invokeMethod('openDndSettings');
-    } on PlatformException {
-      // Fallback intent if native channel fails
+      setState(() => locationStatus = "Location Error: $e");
     }
   }
 
@@ -95,7 +82,7 @@ class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Live Geofence DND'),
+        title: const Text('Auto Geofence Mute'),
         backgroundColor: Colors.deepPurple.shade100,
       ),
       body: Padding(
@@ -103,42 +90,33 @@ class _GeofenceHomeScreenState extends State<GeofenceHomeScreen> {
         child: Column(
           children: [
             Card(
-              elevation: 2,
               child: SwitchListTile(
-                title: const Text('Automatic Geofence Mute',
+                title: const Text('Geofence Auto Mute',
                     style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Runs in background for all devices'),
+                subtitle: const Text('Works automatically on all devices'),
                 value: isGeofenceActive,
-                onChanged: (val) {
-                  setState(() => isGeofenceActive = val);
-                },
+                onChanged: (val) => setState(() => isGeofenceActive = val),
               ),
             ),
             const SizedBox(height: 12),
             Card(
-              elevation: 2,
               child: ListTile(
                 leading: const Icon(Icons.my_location, color: Colors.deepPurple),
-                title: const Text('GPS Tracking Status'),
+                title: const Text('GPS Location Status'),
                 subtitle: Text(locationStatus),
                 trailing: IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: _fetchCurrentLocation,
+                  onPressed: _updateLocation,
                 ),
               ),
             ),
             const SizedBox(height: 12),
             Card(
-              elevation: 2,
-              color: Colors.purple.shade50,
+              color: Colors.green.shade50,
               child: ListTile(
-                leading: const Icon(Icons.settings_suggest, color: Colors.deepPurple),
-                title: const Text('System Notification Access'),
-                subtitle: const Text('Tap to grant background policy access'),
-                trailing: ElevatedButton(
-                  onPressed: _openSystemSettings,
-                  child: const Text('Allow'),
-                ),
+                leading: const Icon(Icons.check_circle, color: Colors.green),
+                title: const Text('System Service Status'),
+                subtitle: Text(dndStatus),
               ),
             ),
           ],
