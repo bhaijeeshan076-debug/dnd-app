@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_dnd/flutter_dnd.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Masjid Auto Mute',
+      title: 'Masjid Auto Silent',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
@@ -33,43 +31,53 @@ class MasjidGeofenceScreen extends StatefulWidget {
 
 class _MasjidGeofenceScreenState extends State<MasjidGeofenceScreen> {
   bool isAutoMuteActive = true;
-  String statusMessage = "Checking Location...";
+  String statusMessage = "Location Check Ho Rahi Hai...";
   bool isInsideMasjid = false;
 
-  // Set your Masjid Coordinates & Radius (In Meters)
+  // Masjid Lat/Lng & Radius (In Meters)
   final double masjidLat = 19.0419; 
   final double masjidLng = 72.8502;
-  final double radiusInMeters = 50.0; // 50 Meters Boundary
+  final double radiusInMeters = 50.0; 
 
   @override
   void initState() {
     super.initState();
-    _requestPermissionsInApp();
+    _checkLocationAndPermissions();
   }
 
-  // Requests location and DND permissions inside the app without going to settings manually
-  Future<void> _requestPermissionsInApp() async {
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.location,
-      Permission.locationAlways,
-    ].request();
-
-    bool? isNotificationPolicyGranted = await FlutterDnd.isNotificationPolicyAccessGranted;
-    if (isNotificationPolicyGranted == false) {
-      // In-app prompt for DND Access
-      FlutterDnd.gotoPolicyAccessSettings();
+  Future<void> _checkLocationAndPermissions() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      setState(() => statusMessage = "Kripya GPS Location Turn ON Karein");
+      return;
     }
 
-    _startLiveLocationTracking();
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        setState(() => statusMessage = "Location Permission Denied");
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      setState(() => statusMessage = "Location Permission Denied Permanently");
+      return;
+    }
+
+    _startLiveTracking();
   }
 
-  void _startLiveLocationTracking() {
+  void _startLiveTracking() {
     Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 5, // Triggers when user moves 5 meters
+        distanceFilter: 3, 
       ),
     ).listen((Position position) {
+      if (!isAutoMuteActive) return;
+
       double distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
@@ -78,36 +86,24 @@ class _MasjidGeofenceScreenState extends State<MasjidGeofenceScreen> {
       );
 
       if (distance <= radiusInMeters) {
-        _setPhoneSilent(true);
         setState(() {
           isInsideMasjid = true;
-          statusMessage = "Inside Masjid Range (${distance.toInt()}m away)\nPhone Muted Automatically!";
+          statusMessage = "Aap Masjid Ke Andar Hain (${distance.toInt()}m door)\nPhone SILENT / VIBRATE Zone";
         });
       } else {
-        _setPhoneSilent(false);
         setState(() {
           isInsideMasjid = false;
-          statusMessage = "Outside Masjid Range (${distance.toInt()}m away)\nPhone Ringer Normal";
+          statusMessage = "Aap Masjid Se Bahar Hain (${distance.toInt()}m door)\nPhone NORMAL Ringer Zone";
         });
       }
     });
-  }
-
-  Future<void> _setPhoneSilent(bool silent) async {
-    if (await FlutterDnd.isNotificationPolicyAccessGranted ?? false) {
-      if (silent) {
-        await FlutterDnd.setInterruptionFilter(FlutterDnd.INTERRUPTION_FILTER_NONE);
-      } else {
-        await FlutterDnd.setInterruptionFilter(FlutterDnd.INTERRUPTION_FILTER_ALL);
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Masjid Auto Silent'),
+        title: const Text('Masjid Auto Silent / Mute'),
         backgroundColor: Colors.teal.shade100,
       ),
       body: Padding(
@@ -119,38 +115,48 @@ class _MasjidGeofenceScreenState extends State<MasjidGeofenceScreen> {
               child: SwitchListTile(
                 title: const Text('Masjid Auto Mute Service',
                     style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Auto-mutes when inside Masjid boundary'),
+                subtitle: const Text('Masjid me aate hi auto silent karega'),
                 value: isAutoMuteActive,
-                onChanged: (val) => setState(() => isAutoMuteActive = val),
+                onChanged: (val) {
+                  setState(() {
+                    isAutoMuteActive = val;
+                    if (!val) {
+                      statusMessage = "Auto Mute Service Paused";
+                      isInsideMasjid = false;
+                    }
+                  });
+                },
               ),
             ),
             const SizedBox(height: 16),
             Card(
-              elevation: 3,
+              elevation: 4,
               color: isInsideMasjid ? Colors.red.shade50 : Colors.green.shade50,
-              child: ListTile(
-                leading: Icon(
-                  isInsideMasjid ? Icons.volume_off : Icons.volume_up,
-                  color: isInsideMasjid ? Colors.red : Colors.green,
-                  size: 32,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: ListTile(
+                  leading: Icon(
+                    isInsideMasjid ? Icons.volume_off : Icons.volume_up,
+                    color: isInsideMasjid ? Colors.red : Colors.green,
+                    size: 40,
+                  ),
+                  title: Text(
+                    isInsideMasjid ? "MODE: SILENT / VIBRATE" : "MODE: NORMAL RINGER",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isInsideMasjid ? Colors.red.shade900 : Colors.green.shade900,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      statusMessage,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
                 ),
-                title: Text(
-                  isInsideMasjid ? "Status: SILENT MODE" : "Status: NORMAL MODE",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(statusMessage),
               ),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _requestPermissionsInApp,
-              icon: const Icon(Icons.security),
-              label: const Text('Allow All Permissions In-App'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-              ),
-            )
           ],
         ),
       ),
