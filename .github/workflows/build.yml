@@ -21,9 +21,8 @@ jobs:
       with:
         channel: 'stable'
 
-    - name: Re-create Android Files & Build
+    - name: Build Debug APK
       run: |
-        flutter create . --platforms=android
         flutter pub get
         flutter build apk --debug
 
