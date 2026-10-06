@@ -2,45 +2,34 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
+    - name: Set up Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu'
+        java-version: '17'
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.x'
 
-      - name: Recreate Clean Android Project & Inject Permissions
-        run: |
-          rm -rf android
-          flutter create --org com.bhaijeeshan.dnd --project-name dnd_app --platforms android .
-          
-          # Fix Kotlin Version
-          if [ -f android/settings.gradle ]; then
-            sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.0"/' android/settings.gradle
-          fi
+    - name: Install Dependencies
+      run: flutter pub get
 
-          # Inject Location & DND Permissions into AndroidManifest.xml
-          MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
-          PERMISSIONS='<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />'
-          
-          sed -i "/<manifest/a \    $PERMISSIONS" $MANIFEST_PATH
+    - name: Build APK
+      run: flutter build apk --debug
 
-          flutter pub get
-          flutter build apk --debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: dnd-geofence-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+    - name: Upload Direct APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: Masjid-Auto-Silent-APK
+        path: build/app/outputs/flutter-apk/app-debug.apk
