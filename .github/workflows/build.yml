@@ -21,8 +21,11 @@ jobs:
       with:
         channel: 'stable'
 
-    - run: flutter pub get
-    - run: flutter build apk --debug
+    - name: Re-create Android Files & Build
+      run: |
+        flutter create . --platforms=android
+        flutter pub get
+        flutter build apk --debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
