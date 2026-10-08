@@ -24,24 +24,23 @@ jobs:
       with:
         channel: 'stable'
 
-    - name: Generate Android Template
+    - name: Clean and Get Packages
       run: |
-        rm -rf android
-        flutter create . --platforms=android --org com.example
+        flutter clean
+        flutter pub get
 
     - name: Generate Launcher Icons
       run: |
-        flutter pub get
         dart run flutter_launcher_icons
 
     - name: Build Debug APK
       run: |
-        flutter build apk --debug --no-tree-shake-icons
+        flutter build apk --debug --split-per-abi
 
     - name: Create Github Release
       uses: softprops/action-gh-release@v1
       with:
-        files: build/app/outputs/flutter-apk/app-debug.apk
+        files: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
         tag_name: v1.0.${{ github.run_number }}
         name: Release v1.0.${{ github.run_number }}
       env:
