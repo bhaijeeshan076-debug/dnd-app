@@ -24,10 +24,15 @@ jobs:
       with:
         channel: 'stable'
 
-    - name: Re-generate Android Folder
+    - name: Clean & Re-create Android Project
       run: |
         rm -rf android
         flutter create . --platforms=android --org com.example
+
+    - name: Inject Permissions & Name into AndroidManifest
+      run: |
+        sed -i 's/android:label=".*"/android:label="Masjid Auto Silent"/g' android/app/src/main/AndroidManifest.xml
+        sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />' android/app/src/main/AndroidManifest.xml
 
     - name: Generate Launcher Icons
       run: |
