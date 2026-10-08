@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() {
@@ -30,43 +29,44 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _isPermissionGranted = false;
-  String _statusMessage = "Auto Silent Service Disabled";
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkPermissionStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermissionStatus();
+    }
   }
 
   Future<void> _checkPermissionStatus() async {
     var status = await Permission.location.status;
-    if (status.isGranted) {
-      setState(() {
-        _isPermissionGranted = true;
-        _statusMessage = "Auto Silent Service is Active ✅";
-      });
-    }
+    setState(() {
+      _isPermissionGranted = status.isGranted;
+    });
   }
 
   Future<void> _enableAutoSilent() async {
-    // Single tap to request location and DND permissions directly
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.location,
-      Permission.locationAlways,
-      Permission.accessNotificationPolicy,
-    ].request();
-
-    if (statuses[Permission.location]?.isGranted ?? false) {
+    PermissionStatus status = await Permission.location.request();
+    if (status.isGranted) {
       setState(() {
         _isPermissionGranted = true;
-        _statusMessage = "Auto Silent Service Enabled Successfully! ✅";
       });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please Allow Location to auto-silent in Masjid.")),
-      );
+    } else if (status.isPermanentlyDenied) {
+      openAppSettings();
     }
   }
 
@@ -75,7 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Masjid Auto Silent", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("Masjid Auto Silent",
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.green,
         centerTitle: true,
       ),
@@ -86,13 +87,15 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                _isPermissionGranted ? Icons.check_circle : Icons.notifications_active,
+                _isPermissionGranted ? Icons.check_circle : Icons.notifications_off,
                 size: 100,
                 color: _isPermissionGranted ? Colors.green : Colors.orange,
               ),
               const SizedBox(height: 20),
               Text(
-                _statusMessage,
+                _isPermissionGranted
+                    ? "Auto Silent Service is Active ✅"
+                    : "Auto Silent Service Disabled",
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
@@ -111,7 +114,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: _enableAutoSilent,
                     child: const Text(
                       "ALLOW & ENABLE AUTO SILENT",
-                      style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                 )
@@ -119,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text(
                   "App is monitoring location. It will automatically mute your phone inside the Masjid.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Colors.grey, fontSize: 15),
                 ),
             ],
           ),
