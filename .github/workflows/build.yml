@@ -27,7 +27,12 @@ jobs:
     - name: Clean & Re-create Android Project
       run: |
         rm -rf android
-        flutter create . --platforms=android --org com.example
+        flutter create . --platforms=android --org com.example --app-name "Masjid Auto Silent"
+
+    - name: Add Location Permissions to AndroidManifest
+      run: |
+        MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
+        sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>' $MANIFEST_PATH
 
     - name: Generate Launcher Icons
       run: |
