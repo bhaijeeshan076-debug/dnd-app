@@ -24,30 +24,49 @@ jobs:
       with:
         channel: 'stable'
 
-    - name: Clean & Re-create Android Project
+    - name: Recreate Clean Android Project
       run: |
         rm -rf android
         flutter create . --platforms=android --org com.example --project-name dnd_app
 
-    - name: Set App Title & Location Permissions
+    - name: Setup Android Manifest Directly
       run: |
-        python3 -c '
-        path = "android/app/src/main/AndroidManifest.xml"
-        with open(path, "r") as f:
-            content = f.read()
-        
-        # Add Location Permissions
-        perms = """    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>\n"""
-        content = content.replace("<application", perms + "    <application")
-        
-        # Set App Display Name
-        content = content.replace("android:label=\"dnd_app\"", "android:label=\"Masjid Auto Silent\"")
-        
-        with open(path, "w") as f:
-            f.write(content)
-        '
+        cat << 'EOF' > android/app/src/main/AndroidManifest.xml
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+            <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+            <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
 
-    - name: Generate Launcher Icons
+            <application
+                android:label="Masjid Auto Silent"
+                android:name="${applicationName}"
+                android:icon="@mipmap/launcher_icon">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true"
+                    android:launchMode="singleTop"
+                    android:theme="@style/LaunchTheme"
+                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                    android:hardwareAccelerated="true"
+                    android:windowSoftInputMode="adjustResize">
+                    <meta-data
+                      android:name="io.flutter.embedding.android.NormalTheme"
+                      android:resource="@style/NormalTheme"
+                      />
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN"/>
+                        <category android:name="android.intent.category.LAUNCHER"/>
+                    </intent-filter>
+                </activity>
+                <meta-data
+                    android:name="flutterEmbedding"
+                    android:value="2" />
+            </application>
+        </manifest>
+        EOF
+
+    - name: Generate App Icon
       run: |
         flutter pub get
         dart run flutter_launcher_icons
