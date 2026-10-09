@@ -27,12 +27,25 @@ jobs:
     - name: Clean & Re-create Android Project
       run: |
         rm -rf android
-        flutter create . --platforms=android --org com.example --app-name "Masjid Auto Silent"
+        flutter create . --platforms=android --org com.example --project-name dnd_app
 
-    - name: Add Location Permissions to AndroidManifest
+    - name: Set App Title & Location Permissions
       run: |
-        MANIFEST_PATH="android/app/src/main/AndroidManifest.xml"
-        sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>' $MANIFEST_PATH
+        python3 -c '
+        path = "android/app/src/main/AndroidManifest.xml"
+        with open(path, "r") as f:
+            content = f.read()
+        
+        # Add Location Permissions
+        perms = """    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>\n"""
+        content = content.replace("<application", perms + "    <application")
+        
+        # Set App Display Name
+        content = content.replace("android:label=\"dnd_app\"", "android:label=\"Masjid Auto Silent\"")
+        
+        with open(path, "w") as f:
+            f.write(content)
+        '
 
     - name: Generate Launcher Icons
       run: |
