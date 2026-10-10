@@ -27,9 +27,6 @@ jobs:
     - name: Install Dependencies
       run: flutter pub get
 
-    - name: Generate Launcher Icons
-      run: dart run flutter_launcher_icons
-
     - name: Build Debug APK
       run: flutter build apk --debug --no-tree-shake-icons
 
