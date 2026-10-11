@@ -24,6 +24,11 @@ jobs:
       with:
         channel: 'stable'
 
+    - name: Recreate Android Project
+      run: |
+        rm -rf android
+        flutter create . --platforms=android --org com.example --project-name dnd_app
+
     - name: Install Dependencies
       run: flutter pub get
 
