@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MasjidAutoSilentApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MasjidAutoSilentApp extends StatelessWidget {
+  const MasjidAutoSilentApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Masjid Auto Silent',
       debugShowCheckedModeBanner: false,
+      title: 'Masjid Auto Silent',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
+        primarySwatch: Colors.green,
       ),
       home: const HomeScreen(),
     );
@@ -29,106 +30,114 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  bool _isPermissionGranted = false;
+class _HomeScreenState extends State<HomeScreen> {
+  bool isServiceActive = true;
+  bool isPausedManually = false;
+  double radiusMeters = 50.0; // Default radius
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _checkPermissionStatus();
+    _loadSettings();
+    _requestPermissions();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _checkPermissionStatus();
-    }
-  }
-
-  Future<void> _checkPermissionStatus() async {
-    var status = await Permission.location.status;
+  // Load saved settings
+  _loadSettings() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isPermissionGranted = status.isGranted;
+      radiusMeters = prefs.getDouble('radius') ?? 50.0;
     });
   }
 
-  Future<void> _enableAutoSilent() async {
-    PermissionStatus status = await Permission.location.request();
-    if (status.isGranted) {
-      setState(() {
-        _isPermissionGranted = true;
-      });
-    } else if (status.isPermanentlyDenied) {
-      openAppSettings();
-    }
+  // Save custom radius
+  _saveRadius(double value) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('radius', value);
+    setState(() {
+      radiusMeters = value;
+    });
+  }
+
+  // Request location permissions
+  void _requestPermissions() async {
+    await [
+      Permission.location,
+      Permission.accessNotificationPolicy,
+    ].request();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Masjid Auto Silent",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text('Masjid Auto Silent'),
         backgroundColor: Colors.green,
         centerTitle: true,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                _isPermissionGranted ? Icons.check_circle : Icons.notifications_off,
-                size: 100,
-                color: _isPermissionGranted ? Colors.green : Colors.orange,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Status Icon
+            Icon(
+              isPausedManually ? Icons.pause_circle_filled : Icons.check_circle,
+              size: 100,
+              color: isPausedManually ? Colors.orange : Colors.green,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              isPausedManually
+                  ? 'Service is Temporarily Paused'
+                  : 'Auto Silent Service is Active',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              isPausedManually
+                  ? 'App will not mute phone until resumed.'
+                  : 'Monitoring location within ${radiusMeters.toInt()} meters of Masjid.',
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 40),
+
+            // Manual Override / Pause Button
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  isPausedManually = !isPausedManually;
+                });
+              },
+              icon: Icon(isPausedManually ? Icons.play_arrow : Icons.pause),
+              label: Text(isPausedManually ? 'Resume Service' : 'Pause for 30 Mins'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isPausedManually ? Colors.green : Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-              const SizedBox(height: 20),
-              Text(
-                _isPermissionGranted
-                    ? "Auto Silent Service is Active ✅"
-                    : "Auto Silent Service Disabled",
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 40),
-              if (!_isPermissionGranted)
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: _enableAutoSilent,
-                    child: const Text(
-                      "ALLOW & ENABLE AUTO SILENT",
-                      style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                )
-              else
-                const Text(
-                  "App is monitoring location. It will automatically mute your phone inside the Masjid.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 15),
-                ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 30),
+
+            // Custom Radius Settings Slider
+            const Text(
+              'Set Masjid Detection Radius:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Slider(
+              value: radiusMeters,
+              min: 20,
+              max: 200,
+              divisions: 9,
+              label: '${radiusMeters.toInt()} meters',
+              onChanged: (double value) {
+                _saveRadius(value);
+              },
+            ),
+            Text('${radiusMeters.toInt()} Meters', style: const TextStyle(color: Colors.green)),
+          ],
         ),
       ),
     );
