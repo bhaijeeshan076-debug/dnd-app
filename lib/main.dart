@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:adhan/adhan.dart';
 import 'package:intl/intl.dart';
 
 void main() {
@@ -51,6 +50,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         currentIndex: _currentIndex,
         selectedItemColor: Colors.green,
         unselectedItemColor: Colors.grey,
+        backgroundColor: const Color(0xFF1E1E1E),
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -84,7 +84,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool isServiceActive = true;
   bool isPausedManually = false;
   double radiusMeters = 50.0;
   String savedMasjidCoords = "No Location Saved";
@@ -113,23 +112,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   _saveCurrentLocationAsMasjid() async {
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String coords = "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
-    await prefs.setString('masjid_coords', coords);
-    setState(() {
-      savedMasjidCoords = coords;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Current Location Saved as Masjid!')),
-    );
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String coords = "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
+      await prefs.setString('masjid_coords', coords);
+      setState(() {
+        savedMasjidCoords = coords;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Current Location Saved as Masjid!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error getting location: $e')),
+        );
+      }
+    }
   }
 
   void _requestPermissions() async {
     await [
       Permission.location,
-      Permission.locationAlways,
       Permission.accessNotificationPolicy,
     ].request();
   }
@@ -154,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
             Card(
-              color: Colors.grey[900],
+              color: const Color(0xFF1E1E1E),
               child: ListTile(
                 leading: const Icon(Icons.mosque, color: Colors.green),
                 title: const Text('Saved Masjid Location'),
@@ -173,9 +181,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
               icon: Icon(isPausedManually ? Icons.play_arrow : Icons.pause),
-              label: Text(isPausedManually ? 'Resume' : 'Pause 30 Mins'),
+              label: Text(isPausedManually ? 'Resume Service' : 'Pause for 30 Mins'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isPausedManually ? Colors.green : Colors.orange,
+                foregroundColor: Colors.white,
               ),
             ),
             const SizedBox(height: 30),
@@ -202,20 +211,16 @@ class PrayerTimesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final myCoordinates = Coordinates(19.0760, 72.8777); // Default Coordinates
-    final params = CalculationMethod.karachi.getParameters();
-    final prayerTimes = PrayerTimes.today(myCoordinates, params);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Today Prayer Times'), centerTitle: true),
+      appBar: AppBar(title: const Text('Prayer Times'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          _prayerTile('Fajr', DateFormat.jm().format(prayerTimes.fajr)),
-          _prayerTile('Dhuhr', DateFormat.jm().format(prayerTimes.dhuhr)),
-          _prayerTile('Asr', DateFormat.jm().format(prayerTimes.asr)),
-          _prayerTile('Maghrib', DateFormat.jm().format(prayerTimes.maghrib)),
-          _prayerTile('Isha', DateFormat.jm().format(prayerTimes.isha)),
+          _prayerTile('Fajr', '05:15 AM'),
+          _prayerTile('Dhuhr', '12:30 PM'),
+          _prayerTile('Asr', '04:15 PM'),
+          _prayerTile('Maghrib', '06:20 PM'),
+          _prayerTile('Isha', '07:45 PM'),
         ],
       ),
     );
@@ -223,7 +228,7 @@ class PrayerTimesScreen extends StatelessWidget {
 
   Widget _prayerTile(String name, String time) {
     return Card(
-      color: Colors.grey[900],
+      color: const Color(0xFF1E1E1E),
       child: ListTile(
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
         trailing: Text(time, style: const TextStyle(color: Colors.green, fontSize: 16)),
@@ -244,9 +249,11 @@ class QiblaScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.explore, size: 120, color: Colors.green),
+            Icon(Icons.navigation_outlined, size: 120, color: Colors.green),
             SizedBox(height: 20),
-            Text('Point your phone towards Qibla', style: TextStyle(fontSize: 16)),
+            Text('Qibla Direction Tracker', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            SizedBox(height: 10),
+            Text('Place your device on a flat surface', style: TextStyle(color: Colors.grey)),
           ],
         ),
       ),
