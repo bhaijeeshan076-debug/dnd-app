@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
 
 void main() {
   runApp(const MasjidAutoSilentApp());
@@ -212,7 +211,7 @@ class PrayerTimesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Prayer Times'), centerTitle: true),
+      appBar: AppBar(title: const Text('Prayer Times', style: TextStyle(color: Colors.white)), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
@@ -244,7 +243,7 @@ class QiblaScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Qibla Direction'), centerTitle: true),
+      appBar: AppBar(title: const Text('Qibla Direction', style: TextStyle(color: Colors.white)), centerTitle: true),
       body: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
