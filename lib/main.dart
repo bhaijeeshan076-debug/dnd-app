@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -232,7 +231,6 @@ class PrayerTimesScreen extends StatelessWidget {
       channelDescription: 'Notifications for Azan times',
       importance: Importance.max,
       priority: Priority.high,
-      sound: RawResourceAndroidNotificationSound('notification'),
       playSound: true,
     );
     const NotificationDetails platformChannelSpecifics =
@@ -254,7 +252,6 @@ class PrayerTimesScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Islamic Calendar Card
           Card(
             color: const Color(0xFF1E1E1E),
             child: Padding(
@@ -312,73 +309,50 @@ class PrayerTimesScreen extends StatelessWidget {
 }
 
 // ---------------- 3. QIBLA SCREEN ----------------
-class QiblaScreen extends StatefulWidget {
+class QiblaScreen extends StatelessWidget {
   const QiblaScreen({super.key});
 
   @override
-  State<QiblaScreen> createState() => _QiblaScreenState();
-}
-
-class _QiblaScreenState extends State<QiblaScreen> {
-  double? heading = 0.0;
-
-  @override
-  void initState() {
-    super.initState();
-    FlutterCompass.events?.listen((CompassEvent event) {
-      setState(() {
-        heading = event.heading ?? 0.0;
-      });
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    double qiblaAngle = 295.0;
-    double needleRotation = (qiblaAngle - (heading ?? 0)) * (math.pi / 180);
-
     return Scaffold(
       appBar: AppBar(title: const Text('Qibla Direction', style: TextStyle(color: Colors.white)), centerTitle: true),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Align the needle towards Qibla',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 40),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.green, width: 3),
-                    color: const Color(0xFF1E1E1E),
-                  ),
-                  child: const Center(
-                    child: Text('N', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18)),
-                  ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.explore, size: 100, color: Colors.green),
+              const SizedBox(height: 20),
+              const Text(
+                'Qibla Direction Pointer',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Direction towards Kaaba (Mecca) from your region is roughly North-West (295°).',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 30),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green),
                 ),
-                Transform.rotate(
-                  angle: needleRotation,
-                  child: const Icon(
-                    Icons.navigation,
-                    size: 100,
-                    color: Colors.green,
-                  ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.navigation, color: Colors.green),
+                    SizedBox(width: 10),
+                    Text('Angle: 295° NW', style: TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold)),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 40),
-            Text(
-              'Heading: ${heading?.toStringAsFixed(0)}°',
-              style: const TextStyle(fontSize: 16, color: Colors.green),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
