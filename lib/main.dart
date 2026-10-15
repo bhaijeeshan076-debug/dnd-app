@@ -1,12 +1,24 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initializationSettings =
+      InitializationSettings(android: initializationSettingsAndroid);
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
   runApp(const MasjidAutoSilentApp());
 }
 
@@ -65,7 +77,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.access_time),
-            label: 'Prayer Times',
+            label: 'Prayer & Calendar',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.explore),
@@ -141,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await [
       Permission.location,
       Permission.accessNotificationPolicy,
+      Permission.notification,
     ].request();
   }
 
@@ -207,39 +220,98 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ---------------- 2. PRAYER TIMES SCREEN ----------------
+// ---------------- 2. PRAYER TIMES & ISLAMIC CALENDAR SCREEN ----------------
 class PrayerTimesScreen extends StatelessWidget {
   const PrayerTimesScreen({super.key});
 
+  Future<void> _showAzanNotification(String prayerName) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'azan_channel_id',
+      'Azan Notifications',
+      channelDescription: 'Notifications for Azan times',
+      importance: Importance.max,
+      priority: Priority.high,
+      sound: RawResourceAndroidNotificationSound('notification'),
+      playSound: true,
+    );
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Azan Time: $prayerName',
+      'It is time for $prayerName prayer.',
+      platformChannelSpecifics,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    String formattedDate = DateFormat('EEEE, d MMM yyyy').format(DateTime.now());
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Prayer Times', style: TextStyle(color: Colors.white)), centerTitle: true),
+      appBar: AppBar(title: const Text('Prayer Times & Calendar', style: TextStyle(color: Colors.white)), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          _prayerTile('Fajr', '05:15 AM'),
-          _prayerTile('Dhuhr', '12:30 PM'),
-          _prayerTile('Asr', '04:15 PM'),
-          _prayerTile('Maghrib', '06:20 PM'),
-          _prayerTile('Isha', '07:45 PM'),
+          // Islamic Calendar Card
+          Card(
+            color: const Color(0xFF1E1E1E),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.calendar_month, color: Colors.green),
+                      SizedBox(width: 8),
+                      Text('Islamic & Gregorian Date', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text('Today: $formattedDate', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  const SizedBox(height: 5),
+                  const Text('Hijri: 28 Shawwal 1447 AH', style: TextStyle(color: Colors.green, fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 15),
+          const Text('Today Prayer Times', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          _prayerTile(context, 'Fajr', '05:15 AM'),
+          _prayerTile(context, 'Dhuhr', '12:30 PM'),
+          _prayerTile(context, 'Asr', '04:15 PM'),
+          _prayerTile(context, 'Maghrib', '06:20 PM'),
+          _prayerTile(context, 'Isha', '07:45 PM'),
         ],
       ),
     );
   }
 
-  Widget _prayerTile(String name, String time) {
+  Widget _prayerTile(BuildContext context, String name, String time) {
     return Card(
       color: const Color(0xFF1E1E1E),
       child: ListTile(
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        trailing: Text(time, style: const TextStyle(color: Colors.green, fontSize: 16)),
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        subtitle: Text(time, style: const TextStyle(color: Colors.green, fontSize: 16)),
+        trailing: ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+          onPressed: () {
+            _showAzanNotification(name);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Azan Alert tested for $name!')),
+            );
+          },
+          child: const Text('Test Azan', style: TextStyle(color: Colors.white)),
+        ),
       ),
     );
   }
 }
 
-// ---------------- 3. QIBLA SCREEN (WITH COMPASS SENSOR) ----------------
+// ---------------- 3. QIBLA SCREEN ----------------
 class QiblaScreen extends StatefulWidget {
   const QiblaScreen({super.key});
 
@@ -262,7 +334,7 @@ class _QiblaScreenState extends State<QiblaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double qiblaAngle = 295.0; // Direction towards Qibla from India
+    double qiblaAngle = 295.0;
     double needleRotation = (qiblaAngle - (heading ?? 0)) * (math.pi / 180);
 
     return Scaffold(
