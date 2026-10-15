@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -238,7 +239,7 @@ class PrayerTimesScreen extends StatelessWidget {
   }
 }
 
-// ---------------- 3. QIBLA SCREEN ----------------
+// ---------------- 3. QIBLA SCREEN (WITH COMPASS SENSOR) ----------------
 class QiblaScreen extends StatefulWidget {
   const QiblaScreen({super.key});
 
@@ -247,12 +248,22 @@ class QiblaScreen extends StatefulWidget {
 }
 
 class _QiblaScreenState extends State<QiblaScreen> {
-  double heading = 0.0;
+  double? heading = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    FlutterCompass.events?.listen((CompassEvent event) {
+      setState(() {
+        heading = event.heading ?? 0.0;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    double qiblaAngle = 295.0;
-    double needleRotation = (qiblaAngle - heading) * (math.pi / 180);
+    double qiblaAngle = 295.0; // Direction towards Qibla from India
+    double needleRotation = (qiblaAngle - (heading ?? 0)) * (math.pi / 180);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Qibla Direction', style: TextStyle(color: Colors.white)), centerTitle: true),
@@ -291,9 +302,9 @@ class _QiblaScreenState extends State<QiblaScreen> {
               ],
             ),
             const SizedBox(height: 40),
-            const Text(
-              'Keep your phone flat on a surface',
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+            Text(
+              'Heading: ${heading?.toStringAsFixed(0)}°',
+              style: const TextStyle(fontSize: 16, color: Colors.green),
             ),
           ],
         ),
