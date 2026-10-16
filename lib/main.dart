@@ -1,23 +1,11 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
   runApp(const MasjidAutoSilentApp());
 }
 
@@ -152,7 +140,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await [
       Permission.location,
       Permission.accessNotificationPolicy,
-      Permission.notification,
     ].request();
   }
 
@@ -223,26 +210,6 @@ class _HomeScreenState extends State<HomeScreen> {
 class PrayerTimesScreen extends StatelessWidget {
   const PrayerTimesScreen({super.key});
 
-  Future<void> _showAzanNotification(String prayerName) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'azan_channel_id',
-      'Azan Notifications',
-      channelDescription: 'Notifications for Azan times',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-    );
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      'Azan Time: $prayerName',
-      'It is time for $prayerName prayer.',
-      platformChannelSpecifics,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     String formattedDate = DateFormat('EEEE, d MMM yyyy').format(DateTime.now());
@@ -277,32 +244,22 @@ class PrayerTimesScreen extends StatelessWidget {
           const SizedBox(height: 15),
           const Text('Today Prayer Times', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          _prayerTile(context, 'Fajr', '05:15 AM'),
-          _prayerTile(context, 'Dhuhr', '12:30 PM'),
-          _prayerTile(context, 'Asr', '04:15 PM'),
-          _prayerTile(context, 'Maghrib', '06:20 PM'),
-          _prayerTile(context, 'Isha', '07:45 PM'),
+          _prayerTile('Fajr', '05:15 AM'),
+          _prayerTile('Dhuhr', '12:30 PM'),
+          _prayerTile('Asr', '04:15 PM'),
+          _prayerTile('Maghrib', '06:20 PM'),
+          _prayerTile('Isha', '07:45 PM'),
         ],
       ),
     );
   }
 
-  Widget _prayerTile(BuildContext context, String name, String time) {
+  Widget _prayerTile(String name, String time) {
     return Card(
       color: const Color(0xFF1E1E1E),
       child: ListTile(
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        subtitle: Text(time, style: const TextStyle(color: Colors.green, fontSize: 16)),
-        trailing: ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-          onPressed: () {
-            _showAzanNotification(name);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Azan Alert tested for $name!')),
-            );
-          },
-          child: const Text('Test Azan', style: TextStyle(color: Colors.white)),
-        ),
+        trailing: Text(time, style: const TextStyle(color: Colors.green, fontSize: 16)),
       ),
     );
   }
