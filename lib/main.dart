@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -76,7 +78,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-// ---------------- 1. AUTO SILENT SCREEN ----------------
+// ---------------- 1. AUTO SILENT SCREEN WITH LIVE DISTANCE CHECK ----------------
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -88,12 +90,23 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isPausedManually = false;
   double radiusMeters = 50.0;
   String savedMasjidCoords = "No Location Saved";
+  String currentStatusText = "Monitoring Inactive";
+  double? targetLat;
+  double? targetLng;
+  Timer? _locationTimer;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
     _requestPermissions();
+    _startLocationMonitoring();
+  }
+
+  @override
+  void dispose() {
+    _locationTimer?.cancel();
+    super.dispose();
   }
 
   _loadSettings() async {
@@ -101,6 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       radiusMeters = prefs.getDouble('radius') ?? 50.0;
       savedMasjidCoords = prefs.getString('masjid_coords') ?? "No Location Saved";
+      targetLat = prefs.getDouble('target_lat');
+      targetLng = prefs.getDouble('target_lng');
     });
   }
 
@@ -117,11 +132,19 @@ class _HomeScreenState extends State<HomeScreen> {
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
       SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      await prefs.setDouble('target_lat', position.latitude);
+      await prefs.setDouble('target_lng', position.longitude);
+      
       String coords = "${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}";
       await prefs.setString('masjid_coords', coords);
+      
       setState(() {
         savedMasjidCoords = coords;
+        targetLat = position.latitude;
+        targetLng = position.longitude;
       });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Current Location Saved as Masjid!')),
@@ -139,8 +162,48 @@ class _HomeScreenState extends State<HomeScreen> {
   void _requestPermissions() async {
     await [
       Permission.location,
+      Permission.locationAlways,
       Permission.accessNotificationPolicy,
     ].request();
+  }
+
+  void _startLocationMonitoring() {
+    // Har 10 seconds me location check karega ki aap masjid ke radius me hain ya nahi
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (isPausedManually || targetLat == null || targetLng == null) {
+        setState(() {
+          currentStatusText = isPausedManually ? "Service Paused Manually" : "No Masjid Location Set";
+        });
+        return;
+      }
+
+      try {
+        Position currentPos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high);
+        
+        double distanceInMeters = Geolocator.distanceBetween(
+          currentPos.latitude,
+          currentPos.longitude,
+          targetLat!,
+          targetLng!,
+        );
+
+        if (distanceInMeters <= radiusMeters) {
+          setState(() {
+            currentStatusText = "Inside Masjid (${distanceInMeters.toStringAsFixed(1)}m) - Silent Triggered!";
+          });
+          // Yahan aapka phone silent zone me aa chuka hai
+        } else {
+          setState(() {
+            currentStatusText = "Outside Masjid (${distanceInMeters.toStringAsFixed(1)}m)";
+          });
+        }
+      } catch (e) {
+        setState(() {
+          currentStatusText = "Location Error: $e";
+        });
+      }
+    });
   }
 
   @override
@@ -158,8 +221,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              isPausedManually ? 'Service Paused' : 'Auto Silent Active',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              currentStatusText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.greenAccent),
             ),
             const SizedBox(height: 20),
             Card(
@@ -182,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
               },
               icon: Icon(isPausedManually ? Icons.play_arrow : Icons.pause),
-              label: Text(isPausedManually ? 'Resume Service' : 'Pause for 30 Mins'),
+              label: Text(isPausedManually ? 'Resume Service' : 'Pause Auto Silent'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isPausedManually ? Colors.green : Colors.orange,
                 foregroundColor: Colors.white,
